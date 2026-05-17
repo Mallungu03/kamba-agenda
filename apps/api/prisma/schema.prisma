@@ -1,0 +1,375 @@
+// ============================================================
+// schema.prisma - Kamba-Agenda Plataforma de Agendamento
+// Stack: PostgreSQL + Prisma ORM
+// Design: Flexibilidade multi-salon + Timezone-aware
+// ============================================================
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SALON_ADMIN
+  PROFESSIONAL
+  CUSTOMER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SlotStatus {
+  AVAILABLE
+  LOCKED
+  BOOKED
+  BLOCKED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String?   @unique
+  name         String
+  username     String?   @unique
+  passwordHash String
+  avatarUrl    String?
+  role         UserRole  @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  salonMemberships    SalonMember[]
+  professionalProfile Professional?
+  appointments        Appointment[]  @relation("CustomerAppointments")
+  notifications       Notification[]
+  reviewsWritten      Review[]
+  auditLogs           AuditLog[]
+  waitlists           Waitlist[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Salon {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  phone       String
+  email       String?
+  address     String
+  city        String
+  state       String?
+  zipCode     String?
+  logoUrl     String?
+  coverUrl    String?
+  timezone    String   @default("Africa/Luanda")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members       SalonMember[]
+  services      Service[]
+  schedules     SalonSchedule[]
+  appointments  Appointment[]
+  professionals Professional[]
+
+  @@index([slug])
+  @@index([city])
+  @@map("salons")
+}
+
+model SalonMember {
+  id        String   @id @default(uuid())
+  salonId   String
+  userId    String
+  role      UserRole @default(SALON_ADMIN)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([salonId, userId])
+  @@index([userId])
+  @@index([salonId, role])
+  @@map("salon_members")
+}
+
+model Professional {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  salonId      String
+  bio          String?
+  rating       Float    @default(0)
+  totalReviews Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  services        ProfessionalService[]
+  availabilities  Availability[]
+  timeOff         TimeOff[]
+  appointments    Appointment[]
+  slots           TimeSlot[]
+  reviews         Review[]
+  waitlistEntries Waitlist[]
+
+  @@index([salonId, isActive])
+  @@map("professionals")
+}
+
+model Service {
+  id           String   @id @default(uuid())
+  salonId      String
+  name         String
+  description  String?
+  durationMins Int
+  price        Decimal  @db.Decimal(10, 2)
+  bufferBefore Int      @default(0)
+  bufferAfter  Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  professionals   ProfessionalService[]
+  appointments    Appointment[]
+  waitlistEntries Waitlist[]
+
+  @@index([salonId, isActive])
+  @@map("services")
+}
+
+model ProfessionalService {
+  id             String   @id @default(uuid())
+  professionalId String
+  serviceId      String
+  customPrice    Decimal? @db.Decimal(10, 2)
+  customDuration Int?
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, serviceId])
+  @@map("professional_services")
+}
+
+model SalonSchedule {
+  id        String  @id @default(uuid())
+  salonId   String
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  isClosed  Boolean @default(false)
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@unique([salonId, dayOfWeek])
+  @@map("salon_schedules")
+}
+
+model Availability {
+  id             String  @id @default(uuid())
+  professionalId String
+  dayOfWeek      Int
+  startTime      String
+  endTime        String
+  isOff          Boolean @default(false)
+  appointmentGap Int     @default(0)
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, dayOfWeek])
+  @@map("availabilities")
+}
+
+model TimeOff {
+  id             String   @id @default(uuid())
+  professionalId String
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  isAllDay       Boolean  @default(true)
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, startDate])
+  @@map("time_offs")
+}
+
+model TimeSlot {
+  id             String     @id @default(uuid())
+  professionalId String
+  startTime      DateTime
+  endTime        DateTime
+  status         SlotStatus @default(AVAILABLE)
+  lockedUntil    DateTime?
+  lockedBy       String?
+  version        Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointment  Appointment?
+
+  @@unique([professionalId, startTime])
+  @@index([professionalId, startTime, status])
+  @@index([startTime])
+  @@index([status, lockedUntil])
+  @@map("time_slots")
+}
+
+model Appointment {
+  id             String @id @default(uuid())
+  customerId     String
+  professionalId String
+  salonId        String
+  serviceId      String
+  slotId         String @unique
+
+  status             AppointmentStatus @default(PENDING)
+  notes              String?
+  cancellationReason String?
+  cancelledBy        String?
+  confirmedAt        DateTime?
+  completedAt        DateTime?
+  noShowAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer     User         @relation("CustomerAppointments", fields: [customerId], references: [id])
+  professional Professional @relation(fields: [professionalId], references: [id])
+  salon        Salon        @relation(fields: [salonId], references: [id])
+  service      Service      @relation(fields: [serviceId], references: [id])
+  slot         TimeSlot     @relation(fields: [slotId], references: [id])
+
+  notifications Notification[]
+  review        Review?
+
+  @@index([customerId, status])
+  @@index([professionalId, status])
+  @@index([professionalId, createdAt])
+  @@index([salonId, status])
+  @@index([slotId])
+  @@index([createdAt])
+  @@index([status, confirmedAt])
+  @@map("appointments")
+}
+
+model Notification {
+  id            String  @id @default(uuid())
+  userId        String
+  appointmentId String?
+
+  channel NotificationChannel
+  status  NotificationStatus  @default(PENDING)
+
+  to           String
+  subject      String?
+  content      String
+  retryCount   Int       @default(0)
+  sentAt       DateTime?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Review {
+  id             String @id @default(uuid())
+  appointmentId  String @unique
+  customerId     String
+  professionalId String
+
+  rating      Int
+  comment     String?
+  response    String?
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment  Appointment  @relation(fields: [appointmentId], references: [id])
+  customer     User         @relation(fields: [customerId], references: [id])
+  professional Professional @relation(fields: [professionalId], references: [id])
+
+  @@index([professionalId, rating])
+  @@index([customerId])
+  @@map("reviews")
+}
+
+model Waitlist {
+  id             String    @id @default(uuid())
+  professionalId String
+  serviceId      String
+  customerId     String
+  preferredDate  DateTime
+  preferredStart DateTime?
+  status         String    @default("WAITING")
+  notifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+
+  professional Professional @relation(fields: [professionalId], references: [id])
+  service      Service      @relation(fields: [serviceId], references: [id])
+  customer     User         @relation(fields: [customerId], references: [id])
+
+  @@index([professionalId, status])
+  @@index([expiresAt])
+  @@map("waitlists")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
