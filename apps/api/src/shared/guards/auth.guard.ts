@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
+import { ROLES_KEY } from '../decorators/roles.decorators';
+import { UserRole } from '../../../generated/prisma/client';
 
 type RequestWithUser = Request & { user?: AuthenticatedUser };
 
@@ -47,6 +50,20 @@ export class AuthGuard implements CanActivate {
       };
     } catch {
       throw new UnauthorizedException('Token de autenticação inválido.');
+    }
+
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (
+      requiredRoles?.length &&
+      !requiredRoles.includes(request.user.role as UserRole)
+    ) {
+      throw new ForbiddenException(
+        'Você não tem permissão para executar esta ação.',
+      );
     }
 
     return true;

@@ -11,8 +11,8 @@ import { AuthService } from './auth.service';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Public } from '../../shared/decorators/public.decorator';
+import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import { Public } from '@/shared/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
