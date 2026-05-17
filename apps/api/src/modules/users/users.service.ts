@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '../../../generated/prisma/client';
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from '../../config/database/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()

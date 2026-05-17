@@ -3,7 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from '../../config/database/prisma.service';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import * as argon2 from 'argon2';

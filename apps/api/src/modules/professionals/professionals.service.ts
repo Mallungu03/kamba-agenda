@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '../../../generated/prisma/client';
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from '../../config/database/prisma.service';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateTimeOffDto } from './dto/create-time-off.dto';
 import { CreateTimeSlotDto } from './dto/create-time-slot.dto';

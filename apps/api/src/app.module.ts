@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-import { DatabaseModule } from './database/database.module';
+import { DatabaseModule } from './config/database/database.module';
+import { EnvModule } from './config/env/env.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -14,6 +15,7 @@ import { AuthGuard } from './shared/guards/auth.guard';
 
 @Module({
   imports: [
+    EnvModule,
     EventEmitterModule.forRoot(),
     DatabaseModule,
     AuthModule,

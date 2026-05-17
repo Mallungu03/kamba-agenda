@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -12,7 +13,11 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const configService = app.get(ConfigService);
+  const port = configService.getOrThrow<number>('env.port');
+  const host = configService.getOrThrow<string>('env.host');
+
+  await app.listen(port, host);
   console.log('Kamba-Agenda API ON!');
 }
 

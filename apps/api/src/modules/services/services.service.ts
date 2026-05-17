@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '../../../generated/prisma/client';
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from '../../config/database/prisma.service';
 import { AssignProfessionalServiceDto } from './dto/assign-professional-service.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
