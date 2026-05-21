@@ -1,33 +1,32 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterAuthDto } from './dto/register-auth.dto';
-import { LoginAuthDto } from './dto/login-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { RegisterDto } from './dto/register.dto';
+import { SignInDto } from './dto/signin.dto';
+import { UpdateAuthDto } from './dto/update.dto';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { Public } from '@/shared/decorators/public.decorator';
+import { RegisterUseCase } from './use-cases/register.use-case';
+import { SignInUseCase } from './use-cases/sign-in.use-case';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly registerUseCase: RegisterUseCase,
+    private readonly signInUseCase: SignInUseCase,
+
+  ) {}
 
   @Public()
   @Post('register')
-  register(@Body() createAuthDto: RegisterAuthDto) {
-    return this.authService.register(createAuthDto);
+  register(@Body() registerDto: RegisterDto) {
+    return this.registerUseCase.execute(registerDto);
   }
 
   @Public()
   @Post('login')
-  login(@Body() loginAuthDto: LoginAuthDto) {
-    return this.authService.login(loginAuthDto);
+  login(@Body() signInDto: SignInDto) {
+    return this.signInUseCase.execute(signInDto);
   }
 
   @Get('me')
@@ -41,12 +40,9 @@ export class AuthController {
   }
 
   @Public()
-  @Patch('refresh/:userId')
-  refreshTokens(
-    @Param('userId', ParseUUIDPipe) userId: string,
-    @Body() body: { refreshToken: string },
-  ) {
-    return this.authService.refreshTokens(userId, body.refreshToken);
+  @Patch('refresh')
+  refreshTokens(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshTokens(body.refreshToken);
   }
 
   @Patch('alter-password')

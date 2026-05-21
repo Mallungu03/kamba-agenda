@@ -471,6 +471,54 @@ export class ProfessionalsService {
     });
   }
 
+  async findAvailableSlots(id: string, date?: string, serviceId?: string) {
+    await this.ensureProfessionalExists(id);
+
+    const dayStart = date ? new Date(`${date}T00:00:00.000Z`) : new Date(0);
+    const dayEnd = date
+      ? new Date(
+          new Date(`${date}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000,
+        )
+      : new Date('9999-12-31');
+
+    const slots = await this.prisma.timeSlot.findMany({
+      where: {
+        professionalId: id,
+        status: 'AVAILABLE',
+        startTime: { gte: dayStart, lt: dayEnd },
+      },
+      orderBy: { startTime: 'asc' },
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        version: true,
+      },
+    });
+
+    if (!serviceId) return slots;
+
+    // fetch service duration and professional custom duration if any
+    const profService = await this.prisma.professionalService.findFirst({
+      where: { professionalId: id, serviceId },
+      select: { customDuration: true },
+    });
+
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { durationMins: true },
+    });
+
+    const requiredMins =
+      profService?.customDuration ?? service?.durationMins ?? 0;
+
+    return slots.filter((s) => {
+      const dur = (s.endTime.getTime() - s.startTime.getTime()) / 60000;
+      return dur >= requiredMins;
+    });
+  }
+
   async createSlot(
     id: string,
     dto: CreateTimeSlotDto,

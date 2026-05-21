@@ -216,6 +216,16 @@ export class ProfessionalsController {
     return this.professionalsService.findSlots(id);
   }
 
+  @Public()
+  @Get(':id/slots/available')
+  findAvailableSlots(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('date') date?: string,
+    @Query('serviceId') serviceId?: string,
+  ) {
+    return this.professionalsService.findAvailableSlots(id, date, serviceId);
+  }
+
   @Post(':id/slots')
   createSlot(
     @Param('id', ParseUUIDPipe) id: string,

@@ -140,6 +140,42 @@ export class SalonsController {
     return this.salonsService.findSchedules(id);
   }
 
+  @Public()
+  @Get(':id/gallery')
+  findGallery(@Param('id', ParseUUIDPipe) id: string) {
+    return this.salonsService.findGallery(id);
+  }
+
+  @Post(':id/gallery')
+  addGalleryImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { imageUrl: string; caption?: string },
+    @CurrentUser('id') requesterId: string,
+    @CurrentUser('role') requesterRole: string,
+  ) {
+    return this.salonsService.addGalleryImage(
+      id,
+      body,
+      requesterId,
+      requesterRole,
+    );
+  }
+
+  @Delete(':id/gallery/:imageId')
+  removeGalleryImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @CurrentUser('id') requesterId: string,
+    @CurrentUser('role') requesterRole: string,
+  ) {
+    return this.salonsService.removeGalleryImage(
+      id,
+      imageId,
+      requesterId,
+      requesterRole,
+    );
+  }
+
   @Post(':id/schedules')
   upsertSchedule(
     @Param('id', ParseUUIDPipe) id: string,

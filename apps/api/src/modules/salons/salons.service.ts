@@ -407,6 +407,63 @@ export class SalonsService {
     return { deleted: true };
   }
 
+  // Gallery methods
+  async findGallery(salonId: string) {
+    await this.ensureSalonExists(salonId);
+
+    return this.prisma.salonGallery.findMany({
+      where: { salonId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, imageUrl: true, caption: true, createdAt: true },
+    });
+  }
+
+  async addGalleryImage(
+    salonId: string,
+    body: { imageUrl: string; caption?: string },
+    requesterId: string,
+    requesterRole: string,
+  ) {
+    await this.ensureCanManageSalon(salonId, requesterId, requesterRole);
+
+    await this.ensureSalonExists(salonId);
+
+    const created = await this.prisma.salonGallery.create({
+      data: {
+        salonId,
+        imageUrl: String(body.imageUrl),
+        caption: body.caption ? String(body.caption) : null,
+      },
+      select: { id: true, imageUrl: true, caption: true, createdAt: true },
+    });
+
+    return created;
+  }
+
+  async removeGalleryImage(
+    salonId: string,
+    imageId: string,
+    requesterId: string,
+    requesterRole: string,
+  ) {
+    await this.ensureCanManageSalon(salonId, requesterId, requesterRole);
+
+    const image = await this.prisma.salonGallery.findFirst({
+      where: { id: imageId, salonId },
+      select: { id: true, imageUrl: true },
+    });
+
+    if (!image) {
+      throw new NotFoundException(
+        'Imagem da galeria não encontrada para este salão.',
+      );
+    }
+
+    await this.prisma.salonGallery.delete({ where: { id: imageId } });
+
+    return { deleted: true };
+  }
+
   private async ensureSalonExists(id: string) {
     const salon = await this.prisma.salon.findUnique({
       where: { id },

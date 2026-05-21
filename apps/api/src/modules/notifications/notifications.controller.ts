@@ -6,10 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -21,21 +21,33 @@ export class NotificationsController {
   }
 
   @Get()
-  findAll() {
-    return this.notificationsService.findAll();
+  findAll(
+    @Query('userId') userId?: string,
+    @Query('status') status?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.notificationsService.findAll({
+      userId,
+      status,
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.notificationsService.findOne(+id);
+    return this.notificationsService.findOne(id);
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateNotificationDto: UpdateNotificationDto,
-  ) {
-    return this.notificationsService.update(+id, updateNotificationDto);
+  @Patch(':id/mark-sent')
+  markSent(@Param('id') id: string) {
+    return this.notificationsService.markSent(id);
+  }
+
+  @Patch(':id/retry')
+  retry(@Param('id') id: string) {
+    return this.notificationsService.retry(id);
   }
 
   @Delete(':id')
