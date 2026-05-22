@@ -2,19 +2,19 @@ import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAppointmentDto {
   @IsUUID()
-  professionalId: string;
+  professionalId;
 
   @IsUUID()
-  serviceId: string;
+  serviceId;
 
   @IsUUID()
-  slotId: string;
+  slotId;
 
   @IsOptional()
   @IsUUID()
-  customerId?: string;
+  customerId?;
 
   @IsOptional()
   @IsString()
-  notes?: string;
+  notes?;
 }

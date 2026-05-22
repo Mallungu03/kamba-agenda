@@ -4,12 +4,11 @@ import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
-import { RegisterUseCase } from './use-cases/register.use-case';
-import { SignInUseCase } from './use-cases/sign-in.use-case';
+import { AuthUseCases } from './auth.use-cases';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, RegisterUseCase, SignInUseCase],
+  providers: [AuthService, AuthUseCases],
   exports: [AuthService],
   imports: [
     JwtModule.registerAsync({

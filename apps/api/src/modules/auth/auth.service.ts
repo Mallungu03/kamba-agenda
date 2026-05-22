@@ -1,46 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../config/database/prisma.service';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
-import { UpdateAuthDto } from './dto/update.dto';
 import { JwtService } from '@nestjs/jwt';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
-
-  async me(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Usuário não encontrado ou inativo.');
-    }
-
-    const { passwordHash: _passwordHash, ...profile } = user;
-    return profile;
-  }
-
-  async logout(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Usuário não encontrado.');
-    }
-
-    await this.prisma.refreshToken.updateMany({
-      where: { expiresAt: { gt: new Date() }, userId },
-      data: { expiresAt: new Date() },
-    });
-
-    return { message: 'Logout realizado com sucesso.' };
-  }
 
   async resolveUniqueUsername(name: string): Promise<string> {
     const baseUsername = name
@@ -65,9 +40,24 @@ export class AuthService {
     return `@${username}`;
   }
 
-  async generateTokens(dto: { id: string; email: string; role: string }) {
+  async generateTokens(dto: {
+    id: string;
+    email: string;
+    role: string;
+    deviceId?: string;
+    deviceName?: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }) {
     const jti = uuidv4();
-    const payload = { id: dto.id, email: dto.email, role: dto.role, jti };
+    const deviceId = dto.deviceId ?? uuidv4();
+    const payload = {
+      id: dto.id,
+      email: dto.email,
+      role: dto.role,
+      jti,
+      deviceId,
+    };
 
     const accessToken = await this.jwt.signAsync(payload, {
       expiresIn: '15m',
@@ -83,88 +73,107 @@ export class AuthService {
       data: {
         token: refreshTokenHash,
         userId: payload.id,
+        deviceId,
+        deviceName: dto.deviceName,
+        ipAddress: dto.ipAddress,
+        userAgent: dto.userAgent,
+        lastUsedAt: new Date(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, deviceId };
   }
 
-  async refreshTokens(refreshToken: string) {
-    let payload: any;
-    try {
-      payload = await this.jwt.verifyAsync(refreshToken);
-    } catch (e) {
-      throw new UnauthorizedException('Token de atualização inválido.');
-    }
-
-    const userId = payload?.id;
-
+  async requestEmailVerification(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!user) {
-      throw new UnauthorizedException('Usuário não encontrado.');
+    if (!user?.isActive) {
+      throw new NotFoundException('Usuário não encontrado ou inativo.');
     }
 
-    const storedTokens = await this.prisma.refreshToken.findMany({
-      where: {
-        expiresAt: { gt: new Date() },
+    const code = await this.createOtpCode(
+      user.email,
+
+      user.id,
+    );
+
+    this.eventEmitter.emit('auth.email-verification.requested', {
+      user,
+      email: user.email,
+      code,
+    });
+
+    return { message: 'Código de verificação enviado.' };
+  }
+
+  async verifyEmail(emailInput: string, code: string) {
+    const email = String(emailInput).toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user?.isActive) {
+      throw new NotFoundException('Usuário não encontrado ou inativo.');
+    }
+
+    await this.consumeOtpCode(email, 'verify Email', code);
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'EMAIL_VERIFIED',
+        entityType: 'User',
+        entityId: user.id,
+        newValues: { email },
+      },
+    });
+
+    return { verified: true };
+  }
+
+  async createOtpCode(email: string, purpose: string, userId?: string) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+
+    await this.prisma.otpCode.create({
+      data: {
+        email,
         userId,
+        purpose,
+        codeHash: await argon2.hash(code),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    return code;
+  }
+
+  async consumeOtpCode(email: string, purpose: string, code: string) {
+    const otp = await this.prisma.otpCode.findFirst({
+      where: {
+        email,
+        purpose,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!storedTokens.length) {
-      throw new UnauthorizedException('Token de atualização não encontrado.');
+    if (!otp || otp.attempts >= 5) {
+      throw new BadRequestException('Código inválido ou expirado.');
     }
 
-    let isTokenValid = false;
+    const isValid = await argon2.verify(otp.codeHash, String(code));
 
-    for (const storedToken of storedTokens) {
-      if (await argon2.verify(storedToken.token, refreshToken)) {
-        isTokenValid = true;
-        break;
-      }
+    if (!isValid) {
+      await this.prisma.otpCode.update({
+        where: { id: otp.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException('Código inválido ou expirado.');
     }
 
-    if (!isTokenValid) {
-      throw new UnauthorizedException('Token de atualização inválido.');
-    }
-
-    return await this.generateTokens({
-      id: user.id,
-      email: user.email,
-      role: user.role,
+    await this.prisma.otpCode.update({
+      where: { id: otp.id },
+      data: { consumedAt: new Date() },
     });
-  }
-
-  async alterPassword(updateAuthDto: UpdateAuthDto, userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user) {
-      throw new UnauthorizedException('Usuário não encontrado.');
-    }
-
-    if (updateAuthDto.currentPassword) {
-      const isCurrentPasswordValid = await argon2.verify(
-        user.passwordHash,
-        String(updateAuthDto.currentPassword),
-      );
-
-      if (!isCurrentPasswordValid) {
-        throw new UnauthorizedException('Senha atual inválida.');
-      }
-    }
-
-    const newPasswordHash = await argon2.hash(
-      String(updateAuthDto.newPassword),
-    );
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash: newPasswordHash },
-    });
-
-    return { message: 'Senha alterada com sucesso.' };
   }
 }

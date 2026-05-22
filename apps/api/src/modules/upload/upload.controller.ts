@@ -12,7 +12,7 @@ import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
-import { UploadService } from './upload.service';
+import { UploadUseCases } from './upload.use-cases';
 
 const uploadDirectory = join(process.cwd(), 'uploads');
 
@@ -32,7 +32,7 @@ const storage = diskStorage({
 
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+  constructor(private readonly uploadUseCases: UploadUseCases) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -45,7 +45,7 @@ export class UploadController {
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return this.uploadService.buildFileResponse(file);
+    return this.uploadUseCases.uploadFile(file);
   }
 
   @Delete(':filename')
@@ -53,6 +53,6 @@ export class UploadController {
     @Param('filename') filename: string,
     @CurrentUser('id') requesterId: string,
   ) {
-    return this.uploadService.deleteFile(filename, requesterId);
+    return this.uploadUseCases.removeFile(filename, requesterId);
   }
 }

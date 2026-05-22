@@ -1,57 +1,39 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-} from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
-import { CreateNotificationDto } from './dto/create-notification.dto';
+import { Controller, Get, Patch, Param, Delete, Query } from '@nestjs/common';
+import { NotificationsUseCases } from './notifications.use-cases';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@/shared/decorators/current-user.decorator';
 
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
-
-  @Post()
-  create(@Body() createNotificationDto: CreateNotificationDto) {
-    return this.notificationsService.create(createNotificationDto);
-  }
+  constructor(private readonly notificationsUseCases: NotificationsUseCases) {}
 
   @Get()
   findAll(
-    @Query('userId') userId?: string,
-    @Query('status') status?: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
   ) {
-    return this.notificationsService.findAll({
+    const userId = user.id;
+    return this.notificationsUseCases.findAll({
       userId,
-      status,
       page: Number(page),
       limit: Number(limit),
     });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.notificationsService.findOne(id);
+  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const userId = user.id;
+    return this.notificationsUseCases.findOne(userId, id);
   }
 
-  @Patch(':id/mark-sent')
-  markSent(@Param('id') id: string) {
-    return this.notificationsService.markSent(id);
-  }
-
-  @Patch(':id/retry')
-  retry(@Param('id') id: string) {
-    return this.notificationsService.retry(id);
+  @Patch(':id/mark-all-read')
+  maekAllRead() {
+    return 'mark all read';
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.notificationsService.remove(+id);
+    return this.notificationsUseCases.remove(id);
   }
 }

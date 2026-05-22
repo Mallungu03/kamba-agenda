@@ -10,25 +10,25 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { SalonsService } from './salons.service';
 import { CreateSalonMemberDto } from './dto/create-salon-member.dto';
 import { CreateSalonDto } from './dto/create-salon.dto';
 import { UpdateSalonMemberDto } from './dto/update-salon-member.dto';
 import { UpdateSalonDto } from './dto/update-salon.dto';
 import { UpsertSalonScheduleDto } from './dto/upsert-salon-schedule.dto';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Public } from '../../shared/decorators/public.decorator';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
+import { Public } from '@/shared/decorators/public.decorator';
+import { SalonsUseCases } from './salons.use-cases';
 
 @Controller('salons')
 export class SalonsController {
-  constructor(private readonly salonsService: SalonsService) {}
+  constructor(private readonly salonsUseCases: SalonsUseCases) {}
 
   @Post()
   create(
     @Body() createSalonDto: CreateSalonDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.salonsService.create(createSalonDto, userId);
+    return this.salonsUseCases.create(createSalonDto, userId);
   }
 
   @Public()
@@ -38,25 +38,27 @@ export class SalonsController {
     @Query('search') search?: string,
     @Query('isActive', new ParseBoolPipe({ optional: true }))
     isActive?: boolean,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
   ) {
-    return this.salonsService.findAll({ city, search, isActive });
+    return this.salonsUseCases.findAll({ city, search, isActive, page, limit });
   }
 
   @Get('mine')
   findMine(@CurrentUser('id') userId: string) {
-    return this.salonsService.findMine(userId);
+    return this.salonsUseCases.findMine(userId);
   }
 
   @Public()
   @Get('slug/:slug')
   findBySlug(@Param('slug') slug: string) {
-    return this.salonsService.findBySlug(slug);
+    return this.salonsUseCases.findBySlug(slug);
   }
 
   @Public()
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salonsService.findOne(id);
+    return this.salonsUseCases.findOne(id);
   }
 
   @Patch(':id')
@@ -66,7 +68,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.update(
+    return this.salonsUseCases.update(
       id,
       updateSalonDto,
       requesterId,
@@ -80,7 +82,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.remove(id, requesterId, requesterRole);
+    return this.salonsUseCases.remove(id, requesterId, requesterRole);
   }
 
   @Get(':id/members')
@@ -89,7 +91,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.findMembers(id, requesterId, requesterRole);
+    return this.salonsUseCases.findMembers(id, requesterId, requesterRole);
   }
 
   @Post(':id/members')
@@ -99,7 +101,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.addMember(id, dto, requesterId, requesterRole);
+    return this.salonsUseCases.addMember(id, dto, requesterId, requesterRole);
   }
 
   @Patch(':id/members/:memberId')
@@ -110,7 +112,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.updateMember(
+    return this.salonsUseCases.updateMember(
       id,
       memberId,
       dto,
@@ -126,7 +128,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.removeMember(
+    return this.salonsUseCases.removeMember(
       id,
       memberId,
       requesterId,
@@ -137,13 +139,13 @@ export class SalonsController {
   @Public()
   @Get(':id/schedules')
   findSchedules(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salonsService.findSchedules(id);
+    return this.salonsUseCases.findSchedules(id);
   }
 
   @Public()
   @Get(':id/gallery')
   findGallery(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salonsService.findGallery(id);
+    return this.salonsUseCases.findGallery(id);
   }
 
   @Post(':id/gallery')
@@ -153,7 +155,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.addGalleryImage(
+    return this.salonsUseCases.addGalleryImage(
       id,
       body,
       requesterId,
@@ -168,7 +170,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.removeGalleryImage(
+    return this.salonsUseCases.removeGalleryImage(
       id,
       imageId,
       requesterId,
@@ -183,7 +185,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.upsertSchedule(
+    return this.salonsUseCases.upsertSchedule(
       id,
       dto,
       requesterId,
@@ -198,7 +200,7 @@ export class SalonsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.salonsService.removeSchedule(
+    return this.salonsUseCases.removeSchedule(
       id,
       scheduleId,
       requesterId,

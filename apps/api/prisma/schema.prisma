@@ -47,6 +47,14 @@ enum SlotStatus {
   BLOCKED
 }
 
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  EXPIRED
+  CANCELLED
+  BOOKED
+}
+
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
@@ -69,6 +77,7 @@ model User {
   auditLogs           AuditLog[]
   waitlists           Waitlist[]
   refreshTokens       RefreshToken[]
+  otpCodes            OtpCode[]
 
   @@index([email])
   @@index([role])
@@ -76,17 +85,42 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String
+  token      String    @unique
+  deviceId   String?
+  deviceName String?
+  ipAddress  String?
+  userAgent  String?
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, deviceId])
   @@index([token])
   @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id         String    @id @default(uuid())
+  userId     String?
+  email      String
+  codeHash   String
+  purpose    String
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+  @@map("otp_codes")
 }
 
 model Salon {
@@ -302,9 +336,7 @@ model Appointment {
   salon        Salon        @relation(fields: [salonId], references: [id])
   service      Service      @relation(fields: [serviceId], references: [id])
   slot         TimeSlot     @relation(fields: [slotId], references: [id])
-
-  notifications Notification[]
-  review        Review?
+  review       Review?
 
   @@index([customerId, status])
   @@index([professionalId, status])
@@ -322,20 +354,20 @@ model Notification {
   appointmentId String?
 
   channel NotificationChannel
-  status  NotificationStatus  @default(PENDING)
+  status  NotificationStatus
 
-  to           String
   subject      String?
   content      String
   retryCount   Int       @default(0)
   sentAt       DateTime?
   errorMessage String?
-  createdAt    DateTime  @default(now())
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
 
-  @@index([userId, status])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([createdAt])
   @@map("notifications")
 }
@@ -364,15 +396,16 @@ model Review {
 }
 
 model Waitlist {
-  id             String    @id @default(uuid())
+  id             String         @id @default(uuid())
   professionalId String
   serviceId      String
   customerId     String
   preferredDate  DateTime
   preferredStart DateTime?
-  status         String    @default("WAITING")
+  status         WaitlistStatus @default(WAITING)
   notifiedAt     DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   expiresAt      DateTime
 
   professional Professional @relation(fields: [professionalId], references: [id])
@@ -380,6 +413,8 @@ model Waitlist {
   customer     User         @relation(fields: [customerId], references: [id])
 
   @@index([professionalId, status])
+  @@index([customerId, status])
+  @@index([serviceId, status])
   @@index([expiresAt])
   @@map("waitlists")
 }

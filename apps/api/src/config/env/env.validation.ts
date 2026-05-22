@@ -20,4 +20,7 @@ export const envValidationSchema = Joi.object({
   EMAIL_USER: Joi.string().optional(),
   EMAIL_PASS: Joi.string().optional(),
   EMAIL_FROM: Joi.string().optional(),
+  REDIS_HOST: Joi.string().hostname().default('127.0.0.1'),
+  REDIS_PORT: Joi.number().port().default(6379),
+  WHATSAPP_FROM: Joi.string().optional(),
 });

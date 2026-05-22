@@ -1,70 +1,45 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../config/database/prisma.service';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@/config/database/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import {
+  NotificationChannel,
+  NotificationStatus,
+} from '../../../generated/prisma/client';
+import {
+  NotificationJob,
+  NOTIFICATIONS_QUEUE,
+} from '@/shared/constants/all-constants';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue(NOTIFICATIONS_QUEUE)
+    private readonly queue: Queue<NotificationJob>,
+  ) {}
 
-  async create(dto: any) {
-    return this.prisma.notification.create({ data: dto });
-  }
-
-  async findAll(query: {
-    userId?: string;
-    status?: string;
-    page?: number;
-    limit?: number;
+  async createAndQueue(dto: {
+    userId: string;
+    channel: NotificationChannel;
+    subject?: string;
+    content: string;
   }) {
-    const where: any = {};
-    if (query.userId) where.userId = query.userId;
-    if (query.status) where.status = query.status;
-
-    const page = query.page ?? 1;
-    const limit = Math.min(query.limit ?? 20, 100);
-
-    const [items, total] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.notification.count({ where }),
-    ]);
-
-    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const data = { ...dto, status: NotificationStatus.PENDING };
+    const notification = await this.prisma.notification.create({ data });
+    await this.enqueue(notification.id);
+    return notification;
   }
 
-  async findOne(id: string) {
-    const notif = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notif) throw new NotFoundException('Notification not found');
-    return notif;
-  }
-
-  async markSent(id: string) {
-    const notif = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notif) throw new NotFoundException('Notification not found');
-
-    return this.prisma.notification.update({
-      where: { id },
-      data: { status: 'SENT', sentAt: new Date() },
-    });
-  }
-
-  async retry(id: string) {
-    const notif = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notif) throw new NotFoundException('Notification not found');
-
-    const retryCount = (notif.retryCount ?? 0) + 1;
-
-    return this.prisma.notification.update({
-      where: { id },
-      data: { retryCount, status: 'PENDING', errorMessage: null },
-    });
-  }
-
-  async remove(id: number) {
-    await this.prisma.notification.delete({ where: { id: String(id) } });
-    return { deleted: true };
+  async enqueue(notificationId: string) {
+    await this.queue.add(
+      'send',
+      { notificationId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 30000 },
+        removeOnComplete: true,
+      },
+    );
   }
 }

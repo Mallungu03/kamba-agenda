@@ -19,4 +19,11 @@ export default registerAs('env', () => ({
     pass: process.env.EMAIL_PASS,
     from: process.env.EMAIL_FROM,
   },
+  redis: {
+    host: process.env.REDIS_HOST ?? '127.0.0.1',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  },
+  whatsapp: {
+    from: process.env.WHATSAPP_FROM,
+  },
 }));

@@ -1,48 +1,98 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { SignInDto } from './dto/signin.dto';
 import { UpdateAuthDto } from './dto/update.dto';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { Public } from '@/shared/decorators/public.decorator';
-import { RegisterUseCase } from './use-cases/register.use-case';
-import { SignInUseCase } from './use-cases/sign-in.use-case';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { DeviceContextDto } from './dto/device-context.dto';
+import type { Request } from 'express';
+import { AuthUseCases } from './auth.use-cases';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly registerUseCase: RegisterUseCase,
-    private readonly signInUseCase: SignInUseCase,
-
-  ) {}
+  constructor(private readonly authUseCases: AuthUseCases) {}
 
   @Public()
   @Post('register')
-  register(@Body() registerDto: RegisterDto) {
-    return this.registerUseCase.execute(registerDto);
+  register(@Body() registerDto: RegisterDto, @Req() request: Request) {
+    return this.authUseCases.register(registerDto, request);
   }
 
   @Public()
   @Post('login')
-  login(@Body() signInDto: SignInDto) {
-    return this.signInUseCase.execute(signInDto);
+  login(
+    @Body() signInDto: SignInDto & DeviceContextDto,
+    @Req() request: Request,
+  ) {
+    return this.authUseCases.sigin(signInDto, request);
   }
 
   @Get('me')
   me(@CurrentUser('id') userId: string) {
-    return this.authService.me(userId);
+    return this.authUseCases.me(userId);
   }
 
   @Post('logout')
-  logout(@CurrentUser('id') userId: string) {
-    return this.authService.logout(userId);
+  logout(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('deviceId') deviceId?: string,
+  ) {
+    return this.authUseCases.signout(userId, deviceId);
   }
 
   @Public()
   @Patch('refresh')
-  refreshTokens(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshTokens(body.refreshToken);
+  refreshTokens(@Body() body: RefreshTokenDto) {
+    return this.authUseCases.refreshTokens(body);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authUseCases.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authUseCases.resetPassword(dto);
+  }
+
+  @Post('verify-email/request')
+  requestEmailVerification(@CurrentUser('id') userId: string) {
+    return this.authUseCases.requestEmailVerification(userId);
+  }
+
+  @Public()
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authUseCases.verifyEmail(dto);
+  }
+
+  @Get('sessions')
+  listSessions(@CurrentUser('id') userId: string) {
+    return this.authUseCases.listSessions(userId);
+  }
+
+  @Delete('sessions/:deviceId')
+  revokeSession(
+    @CurrentUser('id') userId: string,
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.authUseCases.revokeSession(userId, deviceId);
   }
 
   @Patch('alter-password')
@@ -50,6 +100,6 @@ export class AuthController {
     @CurrentUser('id') userId: string,
     @Body() updateAuthDto: UpdateAuthDto,
   ) {
-    return this.authService.alterPassword(updateAuthDto, userId);
+    return this.authUseCases.alterPassword(updateAuthDto, userId);
   }
 }

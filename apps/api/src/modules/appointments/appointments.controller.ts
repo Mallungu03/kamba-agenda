@@ -10,18 +10,18 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { AppointmentsService } from './appointments.service';
+import { AppointmentsUseCases } from './appointments.use-cases';
 import { CancelAppointmentDto } from './dto/cancel-appointment.dto';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import { AppointmentStatus } from '../../../generated/prisma/client';
 
 @Controller('appointments')
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(private readonly appointmentsUseCases: AppointmentsUseCases) {}
 
   @Post()
   create(
@@ -29,7 +29,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.create(
+    return this.appointmentsUseCases.create(
       createAppointmentDto,
       requesterId,
       requesterRole,
@@ -49,7 +49,7 @@ export class AppointmentsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.appointmentsService.findAll(
+    return this.appointmentsUseCases.findAll(
       {
         status,
         customerId,
@@ -66,7 +66,7 @@ export class AppointmentsController {
 
   @Get('mine')
   findMine(@CurrentUser('id') requesterId: string) {
-    return this.appointmentsService.findMine(requesterId);
+    return this.appointmentsUseCases.findMine(requesterId);
   }
 
   @Get('salon/:salonId')
@@ -75,7 +75,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.findBySalon(
+    return this.appointmentsUseCases.findBySalon(
       salonId,
       requesterId,
       requesterRole,
@@ -88,7 +88,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.findByProfessional(
+    return this.appointmentsUseCases.findByProfessional(
       professionalId,
       requesterId,
       requesterRole,
@@ -101,7 +101,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.findOne(id, requesterId, requesterRole);
+    return this.appointmentsUseCases.findOne(id, requesterId, requesterRole);
   }
 
   @Patch(':id')
@@ -111,7 +111,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.update(
+    return this.appointmentsUseCases.update(
       id,
       updateAppointmentDto,
       requesterId,
@@ -125,7 +125,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.confirm(id, requesterId, requesterRole);
+    return this.appointmentsUseCases.confirm(id, requesterId, requesterRole);
   }
 
   @Patch(':id/cancel')
@@ -135,7 +135,12 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.cancel(id, dto, requesterId, requesterRole);
+    return this.appointmentsUseCases.cancel(
+      id,
+      dto,
+      requesterId,
+      requesterRole,
+    );
   }
 
   @Patch(':id/complete')
@@ -144,7 +149,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.complete(id, requesterId, requesterRole);
+    return this.appointmentsUseCases.complete(id, requesterId, requesterRole);
   }
 
   @Patch(':id/no-show')
@@ -153,7 +158,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.markNoShow(id, requesterId, requesterRole);
+    return this.appointmentsUseCases.markNoShow(id, requesterId, requesterRole);
   }
 
   @Get(':id/notifications')
@@ -162,7 +167,7 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.findNotifications(
+    return this.appointmentsUseCases.findNotifications(
       id,
       requesterId,
       requesterRole,
@@ -175,7 +180,7 @@ export class AppointmentsController {
     @Body() dto: CreateReviewDto,
     @CurrentUser('id') requesterId: string,
   ) {
-    return this.appointmentsService.createReview(id, dto, requesterId);
+    return this.appointmentsUseCases.createReview(id, dto, requesterId);
   }
 
   @Patch(':id/review')
@@ -184,7 +189,7 @@ export class AppointmentsController {
     @Body() dto: UpdateReviewDto,
     @CurrentUser('id') requesterId: string,
   ) {
-    return this.appointmentsService.updateReview(id, dto, requesterId);
+    return this.appointmentsUseCases.updateReview(id, dto, requesterId);
   }
 
   @Delete(':id/review')
@@ -192,7 +197,7 @@ export class AppointmentsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('id') requesterId: string,
   ) {
-    return this.appointmentsService.removeReview(id, requesterId);
+    return this.appointmentsUseCases.removeReview(id, requesterId);
   }
 
   @Delete(':id')
@@ -201,6 +206,6 @@ export class AppointmentsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.appointmentsService.remove(id, requesterId, requesterRole);
+    return this.appointmentsUseCases.remove(id, requesterId, requesterRole);
   }
 }

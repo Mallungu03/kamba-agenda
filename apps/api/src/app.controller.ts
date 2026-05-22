@@ -3,11 +3,9 @@ import { Public } from './shared/decorators/public.decorator';
 
 @Controller()
 export class AppController {
-  constructor() {}
-
   @Public()
   @Get()
-  getHello(): string {
+  getHealthMessage() {
     return 'Kamba-Agenda API ON!';
   }
 }

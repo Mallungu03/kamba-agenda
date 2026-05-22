@@ -10,16 +10,16 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Public } from '../../shared/decorators/public.decorator';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
+import { Public } from '@/shared/decorators/public.decorator';
 import { AssignProfessionalServiceDto } from './dto/assign-professional-service.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ServicesService } from './services.service';
+import { ServicesUseCases } from './services.use-cases';
 
 @Controller('services')
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
+  constructor(private readonly servicesUseCases: ServicesUseCases) {}
 
   @Post('salon/:salonId')
   create(
@@ -28,7 +28,7 @@ export class ServicesController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.servicesService.create(
+    return this.servicesUseCases.create(
       salonId,
       dto,
       requesterId,
@@ -43,14 +43,22 @@ export class ServicesController {
     @Query('search') search?: string,
     @Query('isActive', new ParseBoolPipe({ optional: true }))
     isActive?: boolean,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
   ) {
-    return this.servicesService.findAll({ salonId, search, isActive });
+    return this.servicesUseCases.findAll({
+      salonId,
+      search,
+      isActive,
+      page,
+      limit,
+    });
   }
 
   @Public()
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.servicesService.findOne(id);
+    return this.servicesUseCases.findOne(id);
   }
 
   @Patch(':id')
@@ -60,7 +68,7 @@ export class ServicesController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.servicesService.update(id, dto, requesterId, requesterRole);
+    return this.servicesUseCases.update(id, dto, requesterId, requesterRole);
   }
 
   @Delete(':id')
@@ -69,7 +77,7 @@ export class ServicesController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.servicesService.remove(id, requesterId, requesterRole);
+    return this.servicesUseCases.remove(id, requesterId, requesterRole);
   }
 
   @Post(':id/professionals')
@@ -79,7 +87,7 @@ export class ServicesController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.servicesService.assignProfessional(
+    return this.servicesUseCases.assignProfessional(
       id,
       dto,
       requesterId,
@@ -94,7 +102,7 @@ export class ServicesController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.servicesService.unassignProfessional(
+    return this.servicesUseCases.unassignProfessional(
       id,
       professionalId,
       requesterId,

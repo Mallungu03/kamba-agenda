@@ -15,11 +15,26 @@ import { UsersModule } from './modules/users/users.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './shared/guards/auth.guard';
+import { BullModule } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
+import { WaitlistModule } from './modules/waitlist/waitlist.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
     EnvModule,
     EventEmitterModule.forRoot(),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('env.redis.host'),
+          port: configService.get<number>('env.redis.port'),
+        },
+      }),
+    }),
+
     DatabaseModule,
     AuthModule,
     UsersModule,
@@ -33,6 +48,9 @@ import { AuthGuard } from './shared/guards/auth.guard';
     ProfessionalsModule,
     AppointmentsModule,
     NotificationsModule,
+    WaitlistModule,
+    AuditLogsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

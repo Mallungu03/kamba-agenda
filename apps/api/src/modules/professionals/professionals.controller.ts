@@ -10,8 +10,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Public } from '../../shared/decorators/public.decorator';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
+import { Public } from '@/shared/decorators/public.decorator';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateTimeOffDto } from './dto/create-time-off.dto';
 import { CreateTimeSlotDto } from './dto/create-time-slot.dto';
@@ -20,11 +20,11 @@ import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { UpdateTimeOffDto } from './dto/update-time-off.dto';
 import { UpdateTimeSlotDto } from './dto/update-time-slot.dto';
 import { UpsertAvailabilityDto } from './dto/upsert-availability.dto';
-import { ProfessionalsService } from './professionals.service';
+import { ProfessionalsUseCases } from './professionals.use-cases';
 
 @Controller('professionals')
 export class ProfessionalsController {
-  constructor(private readonly professionalsService: ProfessionalsService) {}
+  constructor(private readonly professionalsUseCases: ProfessionalsUseCases) {}
 
   @Post('salon/:salonId')
   create(
@@ -33,7 +33,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.create(
+    return this.professionalsUseCases.create(
       salonId,
       dto,
       requesterId,
@@ -49,19 +49,23 @@ export class ProfessionalsController {
     @Query('search') search?: string,
     @Query('isActive', new ParseBoolPipe({ optional: true }))
     isActive?: boolean,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
   ) {
-    return this.professionalsService.findAll({
+    return this.professionalsUseCases.findAll({
       salonId,
       serviceId,
       search,
       isActive,
+      page,
+      limit,
     });
   }
 
   @Public()
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professionalsService.findOne(id);
+    return this.professionalsUseCases.findOne(id);
   }
 
   @Patch(':id')
@@ -71,7 +75,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.update(
+    return this.professionalsUseCases.update(
       id,
       dto,
       requesterId,
@@ -85,7 +89,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.remove(id, requesterId, requesterRole);
+    return this.professionalsUseCases.remove(id, requesterId, requesterRole);
   }
 
   @Get(':id/appointments')
@@ -94,7 +98,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.findAppointments(
+    return this.professionalsUseCases.findAppointments(
       id,
       requesterId,
       requesterRole,
@@ -104,7 +108,7 @@ export class ProfessionalsController {
   @Public()
   @Get(':id/reviews')
   findReviews(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professionalsService.findReviews(id);
+    return this.professionalsUseCases.findReviews(id);
   }
 
   @Patch(':id/reviews/:reviewId/response')
@@ -115,7 +119,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.respondReview(
+    return this.professionalsUseCases.respondReview(
       id,
       reviewId,
       dto,
@@ -126,7 +130,7 @@ export class ProfessionalsController {
 
   @Get(':id/availabilities')
   findAvailabilities(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professionalsService.findAvailabilities(id);
+    return this.professionalsUseCases.findAvailabilities(id);
   }
 
   @Post(':id/availabilities')
@@ -136,7 +140,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.upsertAvailability(
+    return this.professionalsUseCases.upsertAvailability(
       id,
       dto,
       requesterId,
@@ -151,7 +155,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.removeAvailability(
+    return this.professionalsUseCases.removeAvailability(
       id,
       availabilityId,
       requesterId,
@@ -161,7 +165,7 @@ export class ProfessionalsController {
 
   @Get(':id/time-offs')
   findTimeOffs(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professionalsService.findTimeOffs(id);
+    return this.professionalsUseCases.findTimeOffs(id);
   }
 
   @Post(':id/time-offs')
@@ -171,7 +175,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.createTimeOff(
+    return this.professionalsUseCases.createTimeOff(
       id,
       dto,
       requesterId,
@@ -187,7 +191,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.updateTimeOff(
+    return this.professionalsUseCases.updateTimeOff(
       id,
       timeOffId,
       dto,
@@ -203,7 +207,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.removeTimeOff(
+    return this.professionalsUseCases.removeTimeOff(
       id,
       timeOffId,
       requesterId,
@@ -213,7 +217,7 @@ export class ProfessionalsController {
 
   @Get(':id/slots')
   findSlots(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professionalsService.findSlots(id);
+    return this.professionalsUseCases.findSlots(id);
   }
 
   @Public()
@@ -223,7 +227,7 @@ export class ProfessionalsController {
     @Query('date') date?: string,
     @Query('serviceId') serviceId?: string,
   ) {
-    return this.professionalsService.findAvailableSlots(id, date, serviceId);
+    return this.professionalsUseCases.findAvailableSlots(id, date, serviceId);
   }
 
   @Post(':id/slots')
@@ -233,7 +237,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.createSlot(
+    return this.professionalsUseCases.createSlot(
       id,
       dto,
       requesterId,
@@ -249,7 +253,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.updateSlot(
+    return this.professionalsUseCases.updateSlot(
       id,
       slotId,
       dto,
@@ -265,7 +269,7 @@ export class ProfessionalsController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.professionalsService.removeSlot(
+    return this.professionalsUseCases.removeSlot(
       id,
       slotId,
       requesterId,

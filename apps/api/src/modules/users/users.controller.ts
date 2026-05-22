@@ -6,21 +6,35 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-import { Roles } from '../../shared/decorators/roles.decorators';
 import { UserRole } from '../../../generated/prisma/client';
+import { UsersUseCases } from './users.use-cases';
+import { CurrentUser } from '@/shared/decorators/current-user.decorator';
+import { Roles } from '@/shared/decorators/roles.decorators';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersUseCases: UsersUseCases) {}
 
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
-  findAll(@CurrentUser('role') role: string) {
-    return this.usersService.findAll(role);
+  findAll(
+    @CurrentUser('role') role: string,
+    @Query('search') search?: string,
+    @Query('role') userRole?: UserRole,
+    @Query('isActive') isActive?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.usersUseCases.findAll(role, {
+      search,
+      role: userRole,
+      isActive: isActive === undefined ? undefined : isActive === 'true',
+      page,
+      limit,
+    });
   }
 
   @Get(':id')
@@ -29,7 +43,7 @@ export class UsersController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.usersService.findOne(id, requesterId, requesterRole);
+    return this.usersUseCases.findOne(id, requesterId, requesterRole);
   }
 
   @Patch(':id')
@@ -39,7 +53,7 @@ export class UsersController {
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
   ) {
-    return this.usersService.update(
+    return this.usersUseCases.update(
       id,
       updateUserDto,
       requesterId,
@@ -53,6 +67,6 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('role') role: string,
   ) {
-    return this.usersService.remove(id, role);
+    return this.usersUseCases.remove(id, role);
   }
 }

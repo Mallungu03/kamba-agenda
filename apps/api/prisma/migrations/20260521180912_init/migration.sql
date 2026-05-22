@@ -13,6 +13,9 @@ CREATE TYPE "NotificationStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
 -- CreateEnum
 CREATE TYPE "SlotStatus" AS ENUM ('AVAILABLE', 'LOCKED', 'BOOKED', 'BLOCKED');
 
+-- CreateEnum
+CREATE TYPE "WaitlistStatus" AS ENUM ('WAITING', 'NOTIFIED', 'EXPIRED', 'CANCELLED', 'BOOKED');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -29,6 +32,38 @@ CREATE TABLE "users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "refresh_tokens" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "deviceId" TEXT,
+    "deviceName" TEXT,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "lastUsedAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "otp_codes" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "email" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "consumedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "otp_codes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -122,6 +157,17 @@ CREATE TABLE "salon_schedules" (
 );
 
 -- CreateTable
+CREATE TABLE "salon_gallery" (
+    "id" TEXT NOT NULL,
+    "salonId" TEXT NOT NULL,
+    "imageUrl" TEXT NOT NULL,
+    "caption" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "salon_gallery_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "availabilities" (
     "id" TEXT NOT NULL,
     "professionalId" TEXT NOT NULL,
@@ -189,14 +235,14 @@ CREATE TABLE "notifications" (
     "userId" TEXT NOT NULL,
     "appointmentId" TEXT,
     "channel" "NotificationChannel" NOT NULL,
-    "status" "NotificationStatus" NOT NULL DEFAULT 'PENDING',
-    "to" TEXT NOT NULL,
+    "status" "NotificationStatus" NOT NULL,
     "subject" TEXT,
     "content" TEXT NOT NULL,
     "retryCount" INTEGER NOT NULL DEFAULT 0,
     "sentAt" TIMESTAMP(3),
     "errorMessage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "readAt" TIMESTAMP(3),
 
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
@@ -225,9 +271,10 @@ CREATE TABLE "waitlists" (
     "customerId" TEXT NOT NULL,
     "preferredDate" TIMESTAMP(3) NOT NULL,
     "preferredStart" TIMESTAMP(3),
-    "status" TEXT NOT NULL DEFAULT 'WAITING',
+    "status" "WaitlistStatus" NOT NULL DEFAULT 'WAITING',
     "notifiedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "waitlists_pkey" PRIMARY KEY ("id")
@@ -265,6 +312,24 @@ CREATE INDEX "users_email_idx" ON "users"("email");
 CREATE INDEX "users_role_idx" ON "users"("role");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_token_key" ON "refresh_tokens"("token");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_userId_idx" ON "refresh_tokens"("userId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_userId_deviceId_idx" ON "refresh_tokens"("userId", "deviceId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_token_idx" ON "refresh_tokens"("token");
+
+-- CreateIndex
+CREATE INDEX "otp_codes_email_purpose_idx" ON "otp_codes"("email", "purpose");
+
+-- CreateIndex
+CREATE INDEX "otp_codes_expiresAt_idx" ON "otp_codes"("expiresAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "salons_slug_key" ON "salons"("slug");
 
 -- CreateIndex
@@ -296,6 +361,9 @@ CREATE UNIQUE INDEX "professional_services_professionalId_serviceId_key" ON "pro
 
 -- CreateIndex
 CREATE UNIQUE INDEX "salon_schedules_salonId_dayOfWeek_key" ON "salon_schedules"("salonId", "dayOfWeek");
+
+-- CreateIndex
+CREATE INDEX "salon_gallery_salonId_idx" ON "salon_gallery"("salonId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "availabilities_professionalId_dayOfWeek_key" ON "availabilities"("professionalId", "dayOfWeek");
@@ -340,7 +408,7 @@ CREATE INDEX "appointments_createdAt_idx" ON "appointments"("createdAt");
 CREATE INDEX "appointments_status_confirmedAt_idx" ON "appointments"("status", "confirmedAt");
 
 -- CreateIndex
-CREATE INDEX "notifications_userId_status_idx" ON "notifications"("userId", "status");
+CREATE INDEX "notifications_userId_idx" ON "notifications"("userId");
 
 -- CreateIndex
 CREATE INDEX "notifications_createdAt_idx" ON "notifications"("createdAt");
@@ -358,6 +426,12 @@ CREATE INDEX "reviews_customerId_idx" ON "reviews"("customerId");
 CREATE INDEX "waitlists_professionalId_status_idx" ON "waitlists"("professionalId", "status");
 
 -- CreateIndex
+CREATE INDEX "waitlists_customerId_status_idx" ON "waitlists"("customerId", "status");
+
+-- CreateIndex
+CREATE INDEX "waitlists_serviceId_status_idx" ON "waitlists"("serviceId", "status");
+
+-- CreateIndex
 CREATE INDEX "waitlists_expiresAt_idx" ON "waitlists"("expiresAt");
 
 -- CreateIndex
@@ -365,6 +439,12 @@ CREATE INDEX "audit_logs_entityType_entityId_idx" ON "audit_logs"("entityType", 
 
 -- CreateIndex
 CREATE INDEX "audit_logs_createdAt_idx" ON "audit_logs"("createdAt");
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "otp_codes" ADD CONSTRAINT "otp_codes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "salon_members" ADD CONSTRAINT "salon_members_salonId_fkey" FOREIGN KEY ("salonId") REFERENCES "salons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -389,6 +469,9 @@ ALTER TABLE "professional_services" ADD CONSTRAINT "professional_services_servic
 
 -- AddForeignKey
 ALTER TABLE "salon_schedules" ADD CONSTRAINT "salon_schedules_salonId_fkey" FOREIGN KEY ("salonId") REFERENCES "salons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "salon_gallery" ADD CONSTRAINT "salon_gallery_salonId_fkey" FOREIGN KEY ("salonId") REFERENCES "salons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "availabilities" ADD CONSTRAINT "availabilities_professionalId_fkey" FOREIGN KEY ("professionalId") REFERENCES "professionals"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -416,9 +499,6 @@ ALTER TABLE "appointments" ADD CONSTRAINT "appointments_slotId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "notifications" ADD CONSTRAINT "notifications_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -47,6 +47,7 @@ export class AuthGuard implements CanActivate {
         email: payload.email,
         role: payload.role,
         jti: payload.jti,
+        deviceId: payload.deviceId,
       };
     } catch {
       throw new UnauthorizedException('Token de autenticação inválido.');
