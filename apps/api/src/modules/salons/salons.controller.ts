@@ -9,7 +9,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage, memoryStorage } from 'multer';
+import { extname, join } from 'path';
 import { CreateSalonMemberDto } from './dto/create-salon-member.dto';
 import { CreateSalonDto } from './dto/create-salon.dto';
 import { UpdateSalonMemberDto } from './dto/update-salon-member.dto';
@@ -18,6 +23,25 @@ import { UpsertSalonScheduleDto } from './dto/upsert-salon-schedule.dto';
 import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import { Public } from '@/shared/decorators/public.decorator';
 import { SalonsUseCases } from './salons.use-cases';
+
+const isProduction = process.env.NODE_ENV === 'production';
+const uploadDirectory = join(process.cwd(), 'uploads');
+
+const localStorage = diskStorage({
+  destination: uploadDirectory,
+  filename: (_req, file, callback) => {
+    const timestamp = Date.now();
+    const fileExtName = extname(file.originalname);
+    const sanitizedBaseName = file.originalname
+      .replace(fileExtName, '')
+      .replace(/[^a-zA-Z0-9-_.]/g, '-')
+      .toLowerCase();
+
+    callback(null, `${sanitizedBaseName}-${timestamp}${fileExtName}`);
+  },
+});
+
+const storage = isProduction ? memoryStorage() : localStorage;
 
 @Controller('salons')
 export class SalonsController {
@@ -149,15 +173,25 @@ export class SalonsController {
   }
 
   @Post(':id/gallery')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage,
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
   addGalleryImage(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { imageUrl: string; caption?: string },
+    @UploadedFile() file: Express.Multer.File,
     @CurrentUser('id') requesterId: string,
     @CurrentUser('role') requesterRole: string,
+    @Body('caption') caption?: string,
   ) {
     return this.salonsUseCases.addGalleryImage(
       id,
-      body,
+      file,
+      caption,
       requesterId,
       requesterRole,
     );

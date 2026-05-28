@@ -8,7 +8,7 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServicesService } from './services.service';
 import { PrismaService } from '@/config/database/prisma.service';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 
 @Injectable()
 export class ServicesUseCases {

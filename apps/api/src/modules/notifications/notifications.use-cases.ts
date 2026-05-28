@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 import { PrismaService } from '@/config/database/prisma.service';
 
 @Injectable()
@@ -35,12 +35,19 @@ export class NotificationsUseCases {
   async markAllRead(userId: string) {
     return await this.prisma.notification.updateMany({
       where: { userId },
-      data: {},
+      data: { readAt: new Date() },
     });
   }
 
-  async remove(id: string) {
-    await this.prisma.notification.delete({ where: { id } });
+  async remove(userId: string, id: string) {
+    const result = await this.prisma.notification.deleteMany({
+      where: { id, userId },
+    });
+
+    if (!result.count) {
+      throw new NotFoundException('Notification not found');
+    }
+
     return { deleted: true };
   }
 }

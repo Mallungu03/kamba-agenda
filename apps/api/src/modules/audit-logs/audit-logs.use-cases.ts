@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 import { PrismaService } from '@/config/database/prisma.service';
 import { UserRole } from '@generated/prisma/enums';
 

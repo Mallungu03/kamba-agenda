@@ -12,6 +12,10 @@ import {
   UserRole,
 } from '../../../generated/prisma/client';
 import { PrismaService } from '../../config/database/prisma.service';
+import {
+  AppointmentCancelledEventPayload,
+  AppointmentCreatedEventPayload,
+} from '@/shared/interfaces/event-payloads';
 import { CancelAppointmentDto } from './dto/cancel-appointment.dto';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -166,7 +170,10 @@ export class AppointmentsUseCases {
       return created;
     });
 
-    this.eventEmitter.emit('appointment.created', { appointment });
+    const appointmentCreatedPayload: AppointmentCreatedEventPayload = {
+      appointment,
+    };
+    this.eventEmitter.emit('appointment.created', appointmentCreatedPayload);
     return appointment;
   }
 
@@ -316,7 +323,10 @@ export class AppointmentsUseCases {
     );
 
     if (status === AppointmentStatus.CANCELLED) {
-      this.eventEmitter.emit('appointment.cancelled', { appointment: updated });
+      const cancelledPayload: AppointmentCancelledEventPayload = {
+        appointment: updated,
+      };
+      this.eventEmitter.emit('appointment.cancelled', cancelledPayload);
     }
 
     return updated;

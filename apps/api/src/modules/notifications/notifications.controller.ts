@@ -27,13 +27,13 @@ export class NotificationsController {
     return this.notificationsUseCases.findOne(userId, id);
   }
 
-  @Patch(':id/mark-all-read')
-  maekAllRead() {
-    return 'mark all read';
+  @Patch('mark-all-read')
+  markAllRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsUseCases.markAllRead(user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.notificationsUseCases.remove(id);
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.notificationsUseCases.remove(user.id, id);
   }
 }

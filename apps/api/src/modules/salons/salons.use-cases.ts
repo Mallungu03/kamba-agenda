@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateSalonMemberDto } from './dto/create-salon-member.dto';
 import { CreateSalonDto } from './dto/create-salon.dto';
 import { UpdateSalonMemberDto } from './dto/update-salon-member.dto';
@@ -6,14 +10,16 @@ import { UpdateSalonDto } from './dto/update-salon.dto';
 import { UpsertSalonScheduleDto } from './dto/upsert-salon-schedule.dto';
 import { SalonsService } from './salons.service';
 import { PrismaService } from '@/config/database/prisma.service';
+import { UploadService } from '@/modules/upload/upload.service';
 import { UserRole } from '@generated/prisma/enums';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 
 @Injectable()
 export class SalonsUseCases {
   constructor(
     private readonly salonsService: SalonsService,
     private readonly prisma: PrismaService,
+    private readonly uploadService: UploadService,
   ) {}
   async create(createSalonDto: CreateSalonDto, ownerId: string) {
     const slug = await this.salonsService.resolveUniqueSlug(
@@ -505,10 +511,15 @@ export class SalonsUseCases {
 
   async addGalleryImage(
     salonId: string,
-    body: { imageUrl: string; caption?: string },
+    file: Express.Multer.File,
+    caption: string | undefined,
     requesterId: string,
     requesterRole: string,
   ) {
+    if (!file) {
+      throw new BadRequestException('File is required for gallery upload.');
+    }
+
     await this.salonsService.ensureCanManageSalon(
       salonId,
       requesterId,
@@ -517,11 +528,13 @@ export class SalonsUseCases {
 
     await this.salonsService.ensureSalonExists(salonId);
 
+    const uploadResult = await this.uploadService.uploadFile(file);
+
     const created = await this.prisma.salonGallery.create({
       data: {
         salonId,
-        imageUrl: String(body.imageUrl),
-        caption: body.caption ? String(body.caption) : null,
+        imageUrl: String(uploadResult.url),
+        caption: caption ? String(caption) : null,
       },
       select: { id: true, imageUrl: true, caption: true, createdAt: true },
     });

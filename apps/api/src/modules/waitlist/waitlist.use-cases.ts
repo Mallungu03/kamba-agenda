@@ -8,7 +8,7 @@ import { UserRole, WaitlistStatus } from '../../../generated/prisma/client';
 import { CreateWaitlistEntryDto } from './dto/create-waitlist-entry.dto';
 import { UpdateWaitlistEntryDto } from './dto/update-waitlist-entry.dto';
 import { WaitlistService } from './waitlist.service';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 import { PrismaService } from '@/config/database/prisma.service';
 
 @Injectable()
@@ -63,12 +63,12 @@ export class WaitlistUseCases {
         customerId,
         professionalId: String(dto.professionalId),
         serviceId: String(dto.serviceId),
-        preferredDate: new Date(dto.preferredDate),
+        preferredDate: new Date(String(dto.preferredDate)),
         preferredStart: dto.preferredStart
-          ? new Date(dto.preferredStart)
+          ? new Date(String(dto.preferredStart))
           : undefined,
         expiresAt: dto.expiresAt
-          ? new Date(dto.expiresAt)
+          ? new Date(String(dto.expiresAt))
           : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       },
       select: this.waitlistService.getSelect(),
@@ -149,13 +149,13 @@ export class WaitlistUseCases {
       where: { id },
       data: {
         preferredDate: dto.preferredDate
-          ? new Date(dto.preferredDate)
+          ? new Date(String(dto.preferredDate))
           : undefined,
         preferredStart: dto.preferredStart
-          ? new Date(dto.preferredStart)
+          ? new Date(String(dto.preferredStart))
           : undefined,
-        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
-        status: dto.status,
+        expiresAt: dto.expiresAt ? new Date(String(dto.expiresAt)) : undefined,
+        status: dto.status as WaitlistStatus,
       },
       select: this.waitlistService.getSelect(),
     });

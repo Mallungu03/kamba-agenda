@@ -1,13 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../config/database/prisma.service';
+import type { Request } from 'express';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DeviceContextDto } from './dto/device-context.dto';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +20,7 @@ export class AuthService {
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/[^a-z0-9]+/g, '')
       .replace(/^-+|-+$/g, '');
 
     let username = baseUsername;
@@ -85,51 +83,6 @@ export class AuthService {
     return { accessToken, refreshToken, deviceId };
   }
 
-  async requestEmailVerification(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user?.isActive) {
-      throw new NotFoundException('Usuário não encontrado ou inativo.');
-    }
-
-    const code = await this.createOtpCode(
-      user.email,
-
-      user.id,
-    );
-
-    this.eventEmitter.emit('auth.email-verification.requested', {
-      user,
-      email: user.email,
-      code,
-    });
-
-    return { message: 'Código de verificação enviado.' };
-  }
-
-  async verifyEmail(emailInput: string, code: string) {
-    const email = String(emailInput).toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { email } });
-
-    if (!user?.isActive) {
-      throw new NotFoundException('Usuário não encontrado ou inativo.');
-    }
-
-    await this.consumeOtpCode(email, 'verify Email', code);
-
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'EMAIL_VERIFIED',
-        entityType: 'User',
-        entityId: user.id,
-        newValues: { email },
-      },
-    });
-
-    return { verified: true };
-  }
-
   async createOtpCode(email: string, purpose: string, userId?: string) {
     const code = String(Math.floor(100000 + Math.random() * 900000));
 
@@ -175,5 +128,14 @@ export class AuthService {
       where: { id: otp.id },
       data: { consumedAt: new Date() },
     });
+  }
+
+  getDeviceContext(body: DeviceContextDto, request: Request) {
+    return {
+      deviceId: String(body.deviceId),
+      deviceName: String(body.deviceName),
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    };
   }
 }

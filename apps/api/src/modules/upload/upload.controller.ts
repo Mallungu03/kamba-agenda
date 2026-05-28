@@ -8,27 +8,29 @@ import {
   Delete,
   Param,
 } from '@nestjs/common';
-import { CurrentUser } from '@/shared/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import { UploadUseCases } from './upload.use-cases';
 
+const isProduction = process.env.NODE_ENV === 'production';
 const uploadDirectory = join(process.cwd(), 'uploads');
 
-const storage = diskStorage({
+const localStorage = diskStorage({
   destination: uploadDirectory,
   filename: (_req, file, callback) => {
     const timestamp = Date.now();
     const fileExtName = extname(file.originalname);
     const sanitizedBaseName = file.originalname
       .replace(fileExtName, '')
-      .replace(/[^a-zA-Z0-9-_\.]/g, '-')
+      .replace(/[^a-zA-Z0-9-_.]/g, '-')
       .toLowerCase();
 
     callback(null, `${sanitizedBaseName}-${timestamp}${fileExtName}`);
   },
 });
+
+const storage = isProduction ? memoryStorage() : localStorage;
 
 @Controller('upload')
 export class UploadController {
@@ -49,10 +51,7 @@ export class UploadController {
   }
 
   @Delete(':filename')
-  removeFile(
-    @Param('filename') filename: string,
-    @CurrentUser('id') requesterId: string,
-  ) {
-    return this.uploadUseCases.removeFile(filename, requesterId);
+  removeFile(@Param('filename') filename: string) {
+    return this.uploadUseCases.removeFile(filename);
   }
 }

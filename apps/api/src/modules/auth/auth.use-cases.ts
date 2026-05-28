@@ -18,6 +18,11 @@ import { UpdateAuthDto } from './dto/update.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
+import {
+  EmailVerificationEventPayload,
+  PasswordResetEventPayload,
+  RegisteredEventPayload,
+} from '@/shared/interfaces/event-payloads';
 
 @Injectable()
 export class AuthUseCases {
@@ -28,7 +33,7 @@ export class AuthUseCases {
     private readonly jwt: JwtService,
   ) {}
 
-  async register(dto: RegisterDto, request: Request) {
+  async register(dto: RegisterDto) {
     const email = String(dto.email).toLowerCase();
     const phone = dto.phone ? String(dto.phone) : undefined;
     const existingUser = await this.prisma.user.findFirst({
@@ -45,7 +50,7 @@ export class AuthUseCases {
     const passwordHash = await argon2.hash(String(dto.password));
     const username = await this.authService.resolveUniqueUsername(name);
 
-    const newUser = await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         name,
@@ -53,17 +58,21 @@ export class AuthUseCases {
         phone,
         username,
       },
+      omit: { passwordHash: true, updatedAt: true },
     });
 
-    const { passwordHash: _passwordHash, ...user } = newUser;
-    this.eventEmitter.emit('user.registered', { user });
-
-    return this.authService.generateTokens({
-      id: newUser.id,
-      email: newUser.email,
-      role: newUser.role,
-      ...this.getDeviceContext(dto as DeviceContextDto, request),
-    });
+    const code = await this.authService.createOtpCode(
+      email,
+      'verify_email',
+      user.id,
+    );
+    const registerPayload: RegisteredEventPayload = {
+      userId: user.id,
+      email: user.email,
+      code,
+    };
+    this.eventEmitter.emit('user.registered', registerPayload);
+    console.log('Usuario registrado com sucesso:', user.id);
   }
 
   async sigin(dto: SignInDto & DeviceContextDto, request: Request) {
@@ -93,21 +102,21 @@ export class AuthUseCases {
       email: updatedUser.email,
       id: updatedUser.id,
       role: updatedUser.role,
-      ...this.getDeviceContext(dto, request),
+      ...this.authService.getDeviceContext(dto, request),
     });
   }
 
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      omit: { passwordHash: true, updatedAt: true },
     });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Usuário não encontrado ou inativo.');
     }
 
-    const { passwordHash: _passwordHash, ...profile } = user;
-    return profile;
+    return user;
   }
 
   async signout(userId: string, deviceId?: string) {
@@ -248,6 +257,8 @@ export class AuthUseCases {
       data: { passwordHash: newPasswordHash },
     });
 
+    await this.signout(userId);
+
     return { message: 'Senha alterada com sucesso.' };
   }
 
@@ -262,11 +273,15 @@ export class AuthUseCases {
         'password reset',
         user.id,
       );
-      this.eventEmitter.emit('auth.password-reset.requested', {
-        user,
+      const passwordResetPayload: PasswordResetEventPayload = {
+        userId: user.id,
         email,
         code,
-      });
+      };
+      this.eventEmitter.emit(
+        'auth.password-reset.requested',
+        passwordResetPayload,
+      );
     }
 
     return { message: 'Se o email existir, enviaremos um código de reset.' };
@@ -308,20 +323,49 @@ export class AuthUseCases {
     return { message: 'Senha redefinida com sucesso.' };
   }
 
-  requestEmailVerification(userId: string) {
-    return this.authService.requestEmailVerification(userId);
-  }
+  async requestEmailVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-  verifyEmail(dto: VerifyEmailDto) {
-    return this.authService.verifyEmail(String(dto.email), String(dto.code));
-  }
+    if (!user?.isActive) {
+      throw new NotFoundException('Usuário não encontrado ou inativo.');
+    }
 
-  private getDeviceContext(body: DeviceContextDto, request: Request) {
-    return {
-      deviceId: String(body.deviceId),
-      deviceName: String(body.deviceName),
-      ipAddress: request.ip,
-      userAgent: request.headers['user-agent'],
+    const code = await this.authService.createOtpCode(user.email, user.id);
+
+    const emailVerificationPayload: EmailVerificationEventPayload = {
+      userId: user.id,
+      email: user.email,
+      code,
     };
+    this.eventEmitter.emit(
+      'auth.email-verification.requested',
+      emailVerificationPayload,
+    );
+
+    return { message: 'Código de verificação enviado.' };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    const email = String(dto.email);
+    const code = String(dto.code);
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user?.isActive) {
+      throw new NotFoundException('Usuário não encontrado ou inativo.');
+    }
+
+    await this.authService.consumeOtpCode(email, 'verify Email', code);
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'EMAIL_VERIFIED',
+        entityType: 'User',
+        entityId: user.id,
+        newValues: { email },
+      },
+    });
+
+    return { verified: true };
   }
 }

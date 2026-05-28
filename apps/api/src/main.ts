@@ -14,8 +14,8 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
-  const port = configService.getOrThrow<number>('env.port');
-  const host = configService.getOrThrow<string>('env.host');
+  const port = configService.getOrThrow<number>('env.api.port');
+  const host = configService.getOrThrow<string>('env.api.host');
 
   await app.listen(port, host);
   console.log('Kamba-Agenda API ON!');

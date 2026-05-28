@@ -27,13 +27,13 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  register(@Body() registerDto: RegisterDto, @Req() request: Request) {
-    return this.authUseCases.register(registerDto, request);
+  register(@Body() registerDto: RegisterDto) {
+    return this.authUseCases.register(registerDto);
   }
 
   @Public()
-  @Post('login')
-  login(
+  @Post('signin')
+  signin(
     @Body() signInDto: SignInDto & DeviceContextDto,
     @Req() request: Request,
   ) {
@@ -45,8 +45,8 @@ export class AuthController {
     return this.authUseCases.me(userId);
   }
 
-  @Post('logout')
-  logout(
+  @Post('signout')
+  signout(
     @CurrentUser('id') userId: string,
     @CurrentUser('deviceId') deviceId?: string,
   ) {

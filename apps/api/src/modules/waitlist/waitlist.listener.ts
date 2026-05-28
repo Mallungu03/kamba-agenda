@@ -1,6 +1,10 @@
 import { PrismaService } from '@/config/database/prisma.service';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { WaitlistService } from './waitlist.service';
+import type {
+  AppointmentCancelledEventPayload,
+  WaitlistNotifiedEventPayload,
+} from '@/shared/interfaces/event-payloads';
 
 export class WaitlistListener {
   constructor(
@@ -10,7 +14,7 @@ export class WaitlistListener {
   ) {}
 
   @OnEvent('appointment.cancelled')
-  async onAppointmentCancelled(payload: any) {
+  async onAppointmentCancelled(payload: AppointmentCancelledEventPayload) {
     const appointment = payload.appointment;
     const entry = await this.prisma.waitlist.findFirst({
       where: {
@@ -33,9 +37,10 @@ export class WaitlistListener {
       select: this.waitlistService.getSelect(),
     });
 
-    this.eventEmitter.emit('waitlist.notified', {
+    const waitlistPayload: WaitlistNotifiedEventPayload = {
       entry: updated,
       appointment,
-    });
+    };
+    this.eventEmitter.emit('waitlist.notified', waitlistPayload);
   }
 }

@@ -12,7 +12,7 @@ import { UpdateTimeOffDto } from './dto/update-time-off.dto';
 import { UpdateTimeSlotDto } from './dto/update-time-slot.dto';
 import { UpsertAvailabilityDto } from './dto/upsert-availability.dto';
 import { ProfessionalsService } from './professionals.service';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 import { PrismaService } from '@/config/database/prisma.service';
 import { UserRole } from '@generated/prisma/enums';
 

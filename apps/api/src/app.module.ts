@@ -16,7 +16,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './shared/guards/auth.guard';
 import { BullModule } from '@nestjs/bullmq';
-import { ConfigService } from '@nestjs/config';
+import { EnvService } from './config/env/env.service';
 import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -26,11 +26,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     EnvModule,
     EventEmitterModule.forRoot(),
     BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      inject: [EnvService],
+      useFactory: (envService: EnvService) => ({
         connection: {
-          host: configService.get<string>('env.redis.host'),
-          port: configService.get<number>('env.redis.port'),
+          host: envService.redisHost,
+          port: envService.redisPort,
         },
       }),
     }),

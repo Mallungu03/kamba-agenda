@@ -7,7 +7,7 @@ import { UserRole } from '../../../generated/prisma/client';
 import { PrismaService } from '@/config/database/prisma.service';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { getPagination, paginated } from '@/shared/pagination';
+import { getPagination, paginated } from '@/shared/utils/pagination';
 
 @Injectable()
 export class UsersUseCases {

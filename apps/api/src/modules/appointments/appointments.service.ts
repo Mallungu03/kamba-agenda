@@ -11,7 +11,7 @@ import {
   UserRole,
 } from '../../../generated/prisma/client';
 import { PrismaService } from '@/config/database/prisma.service';
-import { toJson } from '@/shared/json';
+import { toJson } from '@/shared/utils/json';
 
 @Injectable()
 export class AppointmentsService {
